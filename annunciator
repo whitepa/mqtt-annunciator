@@ -1,0 +1,69 @@
+#!/usr/bin/python3
+
+import RPi.GPIO as GPIO
+import time
+import os
+from contextlib import ExitStack
+from MQTTClient import MQTTClient
+import configparser
+
+# Setup GPIO
+GPIO.setmode(GPIO.BCM)
+
+# GPIO OUTPUT PINS
+GPIO_RED    = 14 # PIN 8
+GPIO_YELLOW = 15 # PIN 10
+GPIO_GREEN  = 18 # PIN 12
+GPIO_KLAXON = 23 # PIN 16
+
+GPIO.setup(GPIO_RED, GPIO.OUT)
+GPIO.setup(GPIO_YELLOW, GPIO.OUT)
+GPIO.setup(GPIO_GREEN, GPIO.OUT)
+GPIO.setup(GPIO_KLAXON, GPIO.OUT)
+
+class Controller():
+    def __init__(self):
+        self.red = False
+        self.yellow = False
+        self.green = False
+        self.klaxon = False
+
+    def receivedMessage(self, topic, payload):
+        print("Received message topic " + str(topic) + " payload " + str(payload))
+        if topic == "annunciator/red":
+            if payload == "True":
+                GPIO.output(GPIO_RED, 1)
+            else:
+                GPIO.output(GPIO_RED, 0)
+        if topic == "annunciator/yellow":
+             if payload == "True":
+                GPIO.output(GPIO_YELLOW, 1)
+            else:
+                GPIO.output(GPIO_YELLOW, 0)
+        if topic == "annunicator/green":
+            if payload == "True":
+                GPIO.output(GPIO_GREEN, 1)
+            else:
+                GPIO.output(GPIO_GREEN, 0)
+        if topic == "annunciator/klaxon":
+            if payload == "True":
+                GPIO.output(GPIO_KLAXON, 1)
+            else:
+                GPIO.output(GPIO_KLAXON, 0)
+
+try:
+    config = configparser.ConfigParser()
+    config.read('annunciator.ini')
+    controller = Controller()
+    mqtt = MQTTClient(controller,
+                    config['MQTT']['Host'],
+                    int(config['MQTT']['Port']),
+                    config['MQTT']['Username'],
+                    config['MQTT']['Password'])
+    with ExitStack() as stack:
+        stack.enter_context(mqtt)
+        while True:
+            time.sleep(0.5)
+
+except KeyboardInterrupt:
+    GPIO.cleanup()
